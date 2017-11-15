@@ -1,9 +1,11 @@
 ﻿using Microsoft.Win32;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using SpritesheetDecomposer.Properties;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,6 +18,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 
 namespace SpritesheetDecomposer
 {
@@ -24,6 +27,8 @@ namespace SpritesheetDecomposer
 	/// </summary>
 	public partial class MainWindow : Window, INotifyPropertyChanged
 	{
+		public Settings settings = new Settings();
+
 		public string SelectedImage { get; set; }
 
 		public string RowsString
@@ -77,9 +82,17 @@ namespace SpritesheetDecomposer
 			var dlg = new OpenFileDialog();
 			dlg.Filter = "Image files (*.jpg, *.jpeg, *.jpe, *.jfif, *.png) | *.jpg; *.jpeg; *.jpe; *.jfif; *.png";
 
+			var startPath = settings.BrowsePath;
+			if (!string.IsNullOrWhiteSpace(startPath))
+			{
+				dlg.InitialDirectory = startPath;
+			}
+
 			if (dlg.ShowDialog() == true)
 			{
 				var chosen = dlg.FileName;
+
+				settings.BrowsePath = System.IO.Path.GetDirectoryName(chosen);
 
 				SelectedImage = chosen;
 				RaisePropertyChangedEvent("SelectedImage");
@@ -91,8 +104,16 @@ namespace SpritesheetDecomposer
 			var dlg = new CommonOpenFileDialog();
 			dlg.IsFolderPicker = true;
 
+			var startPath = settings.ExportPath;
+			if (!string.IsNullOrWhiteSpace(startPath))
+			{
+				dlg.InitialDirectory = startPath;
+			}
+
 			if (dlg.ShowDialog() == CommonFileDialogResult.Ok)
 			{
+				settings.ExportPath = dlg.FileName;
+
 				// do the export
 				var rows = int.Parse(RowsString);
 				var columns = int.Parse(ColumnsString);
@@ -123,6 +144,60 @@ namespace SpritesheetDecomposer
 					}
 				}
 			}
+		}
+	}
+
+	public class Settings
+	{
+		public string BrowsePath
+		{
+			get { return m_browsePath; }
+			set
+			{
+				m_browsePath = value;
+				Save();
+			}
+		}
+		private string m_browsePath;
+
+		public string ExportPath
+		{
+			get { return m_exportPath; }
+			set
+			{
+				m_exportPath = value;
+				Save();
+			}
+		}
+		private string m_exportPath;
+
+		public string SettingsFile
+		{
+			get
+			{
+				return "DecomposerSettings.xml";
+			}
+		}
+
+		public Settings()
+		{
+			if (File.Exists(SettingsFile))
+			{
+				var doc = XDocument.Load(SettingsFile);
+				m_browsePath = doc.Root.Element("BrowsePath").Value;
+				m_exportPath = doc.Root.Element("ExportPath").Value;
+			}
+		}
+
+		public void Save()
+		{
+			var doc = new XDocument();
+			doc.Add(new XElement("Root"));
+
+			doc.Root.Add(new XElement("BrowsePath", BrowsePath));
+			doc.Root.Add(new XElement("ExportPath", ExportPath));
+
+			doc.Save(SettingsFile);
 		}
 	}
 
